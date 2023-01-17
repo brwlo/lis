@@ -1,11 +1,14 @@
-( aux ) : cc page clearstacks ;
-: ]l ] postpone literal ; : ++ rot + -rot + swap ;
-: v: variable ; : c: constant ;
-: 2v 2variable ; : 2c 2constant ;
+( aux )
+warnings off
+: cc page clearstacks ; : ]l ] postpone literal ;
+: v: variable ; : 2v: 2variable ;
+: c: constant ; : 2c: 2constant ;
 : 0! 0 swap ! ; : 3drop 2drop drop ;
 : winw form nip ; : winh form drop ;
 : 00xy 0 0 at-xy ; : 01xy 0 1 at-xy ;
-: bl? bl = ; 
+: bl? bl = ; : esc? dup 27 = ; : bksp? dup 127 = ;
+: ++ rot + -rot + swap ; : i+ i + ;
+: 1= 1 = ; : 2= 2 = ; : 2+ 2 + ; : 2- 2 - ;
 
 ( files -- rework )
 2v: fname v: file
@@ -22,14 +25,13 @@
 34 c: blue  35 c: magenta 36 c: cyan  37 c: white
 : digs 10 /mod '0 + swap '0 + swap emit emit ;
 : colo esc[ digs 'm emit ; : bg 10 + ;
-: blubg blue bg colo ; : bnw black bg colo white colo ;
-: blu blue colo ; : gre green colo ;
 2v: colr
 : swp colr 2@ swap colr 2! ; : colr@ colr @ ;
 : !remem colr@ swap colr 2! ; : colo> colr@ colo ;
 : yellow! yellow colr ! ; : green! green colr ! ;
 : white! white colr ! ; : red! red colr ! ;
-: blue! blue colr ! ;
+: blubg blue bg colo ; : bnw black bg colo white colo ;
+: blu blue colo ; : gre green colo ;
 
 ( boxes )
 64 c: w 16 c: h w h * c: len 2v: offs
@@ -50,12 +52,13 @@ v: buf v: ind
 : cx pos drop ; : cy pos nip ; : buf@ buf @ len ;
 : x0 ind @ cx - ; : x$ ind @ w cx - 1- + ;
 : whe buf @ ind @ ; : where@ whe + ; : what where@ c@ ;
-: bef whe 1- + c@ ; : aft whe 1+ + c@ ; : 2bef whe 2 - + c@ ;
+: bef whe 1- + c@ ; : aft whe 1+ + c@ ;
+: beg? cx 0= ; : end? cx w 1- = ;
 
 ( syntax -- not working ) 2v: @syn
 : !rem @syn @ swap @syn 2! ; : rem @syn 1+ @ @syn ! ;
-: -bl? what bl <> ; : beg? cx 0= ; : end? cx w 1- = ;
 : bef? bef bl? ; : aft? aft bl? ;
+: @bl? what bl? ; : -bl? what bl <> ;
 : wrd? beg? bef? or aft? and ; : what? what = wrd? and ;
 : int @syn @ 0 = if yellow! rdrop then ;
 : )com ') what? if swp rem rdrop then ;
@@ -65,16 +68,16 @@ v: buf v: ind
 : com? '( what? if 1 !rem rdrop then ;
 : def? ': what? if 2 @syn ! rdrop then ;
 : ent? @syn @ 2 = -bl? and if 3 @syn ! rdrop then ;
-: cmp? @syn @ 3 = what bl? and if 4 @syn ! rdrop then ;
+: cmp? @syn @ 3 = @bl? and if 4 @syn ! rdrop then ;
 : int? '; what? if @syn 0! rdrop then ;
 : syn? int? com? def? ent? cmp? ;
 : syn syn? int com def cmp ; : syn syn colo> ;
 
 ( content -- needs improvement )
-64 c: #blks len #blks * c: size v: #blk
+64 c: #blks len #blks * c: size v: #blk v: shad
 create blocks here size bl fill size allot 
 : fname s" blocks.4th" ; : >blocks ['] blocks >body ;
-: blk #blk ! blocks #blk @ len * + buf ! ;
+: blk 2* #blk ! blocks #blk @ len * + buf ! ;
 : blk% #blks mod blk ; : fsave >blocks size fname "write ;
 : blk+ #blk @ 2 + blk% ; : blk- #blk @ 2 - blk% ;
 : file? fname slurp-file ; : fread file? >blocks swap move ;
@@ -83,36 +86,36 @@ create blocks here size bl fill size allot
 : put nl? syn emit x+ ; : wrt where@ c! ; : bksp? dup 127 = ;
 : bksp? bksp? if x- refr bl wrt bl emit refr drop rdrop then ;
 : prnt len 0 do refr buf @ i + @ put loop ;
-: prnt ind 0! prnt ind 0! refr ;
-: bufclr buf @ len bl fill ; fread 0 blk
+: prnt ind 0! prnt ind 0! refr ; : bufcl buf @ len bl fill ;
+: alt~ shad @ if - else + then ; : alt #blk @ 1 + alt~ blk ;
+s" touch blocks.4th" system    fread 0 blk
 
-( comms )
-v: 'draw : draw 'draw @ execute ;
+( commands )
+v: 'draw : draw 'draw @ execute ; : prep 3drop page ;
 : .quit 3drop page bar quit ; : @bl? what bl = ;
-: run 3drop page run bar quit ;
-: run@ 3drop page run@ bar quit ;
+: .run prep run bar quit ; : .run@ prep run@ bar quit ;
 : .top cx ind! ; : .bot len w - cx + ind! ;
-: .beg x0 ind! ; : .end x$ ind! ; : .clr bufclr prnt ;
+: .beg x0 ind! ; : .end x$ ind! ; : .clr bufcl prnt ;
 : .clrln where@ w cx - bl fill ind @ prnt ind! ;
+: .delln .beg w 0 do bl wrt bl put loop y- .beg ;
 : .nex begin x+ @bl? until ; : .prv begin x- @bl? until ;
 : .blk+ blk+ draw ; : .blk- blk- draw ;
-: .deln .beg w 0 do bl wrt bl put loop y- .beg ;
 
 ( normal )
 : 2next dup 2over rot cells + 2@ dup 0<> ;
 : nokey 3drop 3drop rdrop ; : --- , ' , ;
 : dokey rot = if execute 3drop rdrop else drop 2 + then ;
-create normal 'i --- noop   'Q --- .quit  'D --- .deln
+create normal 'i --- noop   'Q --- .quit
 'j --- y+     'k --- y-     'l --- x+     ', --- x-
 'G --- .bot   'g --- .top   '0 --- .beg   '$ --- .end
-'w --- .nex   'b --- .prv   'x --- run@   'X --- run
-'c --- .clrln 'C --- noop   'J --- .blk+  'K --- .blk-
-'S --- fsave
+'w --- .nex   'b --- .prv   'x --- .run@  'X --- .run
+'c --- .clrln 'C --- noop   'D --- .delln 'S --- fsave
+'J --- .blk+  'K --- .blk-
 0 , 0 , does> 0 begin 2next if dokey else nokey then again ;
 
 ( modes )
 v: mode
-: >mode mode @ execute ; : keys key >mode ;
+: mode> mode @ execute ; : keys key mode> ;
 : >normal ['] normal mode ! ; : esc? dup 27 = ;
 : insert esc? if drop >normal else bksp? dup wrt put then ;
 : >insert ['] insert mode ! ;
@@ -125,3 +128,4 @@ v: mode
 : draw page bar left gre box iff blk. prnt ;
 ' draw 'draw !   >normal
 : lis draw begin keys blk. bar refr again ;
+lis
