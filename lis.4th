@@ -9,6 +9,7 @@ warnings off
 : bl? bl = ; : esc? dup 27 = ; : bksp? dup 127 = ;
 : ++ rot + -rot + swap ; : i+ i + ;
 : 1= 1 = ; : 2= 2 = ; : 2+ 2 + ; : 2- 2 - ;
+: sort 2dup max -rot min ; : -sort 2dup min -rot max ;
 
 ( files -- rework )
 2v: fname v: file
@@ -52,16 +53,17 @@ v: buf v: ind
 : cx pos drop ; : cy pos nip ; : buf@ buf @ len ;
 : x0 ind @ cx - ; : x$ ind @ w cx - 1- + ;
 : whe buf @ ind @ ; : where@ whe + ; : what where@ c@ ;
-: bef whe 1- + c@ ; : aft whe 1+ + c@ ;
+: bef whe 1- + c@ ; : aft whe 1+ + c@ ; : 2bef whe 2- + c@ ;
 : beg? cx 0= ; : end? cx w 1- = ;
 
-( syntax -- not working ) 2v: @syn
-: !rem @syn @ swap @syn 2! ; : rem @syn 1+ @ @syn ! ;
+( syntax ) 2v: @syn
+: !rem @syn @ swap @syn 2! ; : rem @syn 1 cells + @ @syn ! ;
 : bef? bef bl? ; : aft? aft bl? ;
 : @bl? what bl? ; : -bl? what bl <> ;
 : wrd? beg? bef? or aft? and ; : what? what = wrd? and ;
 : int @syn @ 0 = if yellow! rdrop then ;
-: )com ') what? if swp rem rdrop then ;
+: )com @bl? bef ') = and 2bef bl? and ;
+: )com )com if swp rem rdrop then ;
 : com @syn @ 1 = if white !remem )com rdrop then ;
 : def @syn @ 2 = if red! rdrop then ;
 : cmp @syn @ 4 = if green! rdrop then ;
@@ -77,7 +79,7 @@ v: buf v: ind
 64 c: #blks len #blks * c: size v: #blk v: shad
 create blocks here size bl fill size allot 
 : fname s" blocks.4th" ; : >blocks ['] blocks >body ;
-: blk 2* #blk ! blocks #blk @ len * + buf ! ;
+: blk #blk ! blocks #blk @ len * + buf ! ;
 : blk% #blks mod blk ; : fsave >blocks size fname "write ;
 : blk+ #blk @ 2 + blk% ; : blk- #blk @ 2 - blk% ;
 : file? fname slurp-file ; : fread file? >blocks swap move ;
@@ -88,7 +90,9 @@ create blocks here size bl fill size allot
 : prnt len 0 do refr buf @ i + @ put loop ;
 : prnt ind 0! prnt ind 0! refr ; : bufcl buf @ len bl fill ;
 : alt~ shad @ if - else + then ; : alt #blk @ 1 + alt~ blk ;
-s" touch blocks.4th" system    fread 0 blk
+: .ld #blk @ >r 2* blk run r> blk ;
+: .tru -sort 1+ swap do i .ld loop ;
+s" touch blocks.4th" system    fread   0 blk
 
 ( commands )
 v: 'draw : draw 'draw @ execute ; : prep 3drop page ;
@@ -97,7 +101,7 @@ v: 'draw : draw 'draw @ execute ; : prep 3drop page ;
 : .top cx ind! ; : .bot len w - cx + ind! ;
 : .beg x0 ind! ; : .end x$ ind! ; : .clr bufcl prnt ;
 : .clrln where@ w cx - bl fill ind @ prnt ind! ;
-: .delln .beg w 0 do bl wrt bl put loop y- .beg ;
+: .delln .beg w 1- 0 do bl wrt bl put loop y- .beg ;
 : .nex begin x+ @bl? until ; : .prv begin x- @bl? until ;
 : .blk+ blk+ draw ; : .blk- blk- draw ;
 

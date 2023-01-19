@@ -4,7 +4,9 @@
 
 The software is somewhat usable, but has its quirks and bugs.
 
-Just call it as "gforth lis.4th". It will create a 32K file "blocks.4th".
+Just call it as *gforth lis.4th*. It will create a 32K file *blocks.4th* if it doesn't exist.
+
+The source code of the editor is provided also as a *blocks.4th* file for demonstration, although calling *gforth blocks.4th* will fail for some reason. 
 
 Features:
 1) syntax highlighting ( mostly working )
