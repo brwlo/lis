@@ -7,9 +7,11 @@ warnings off
 : winw form nip ; : winh form drop ;
 : 00xy 0 0 at-xy ; : 01xy 0 1 at-xy ;
 : bl? bl = ; : esc? dup 27 = ; : bksp? dup 127 = ;
+: digit? '0 '9 1+ within ;
 : ++ rot + -rot + swap ; : i+ i + ;
 : 1= 1 = ; : 2= 2 = ; : 2+ 2 + ; : 2- 2 - ;
 : sort 2dup max -rot min ; : -sort 2dup min -rot max ;
+: s>num s>number drop ;
 
 ( files -- rework )
 2v: fname v: file
@@ -37,10 +39,10 @@ warnings off
 ( boxes )
 64 c: w 16 c: h w h * c: len 2v: offs
 : off offs 2@ ; : iff offs 2@ 1 1 ++ offs 2! ;
-: hor w 0 do ." ─" loop ;
-: top off at-xy ." ┌" hor ." ┐" ;
-: bot off h 1+ + at-xy ." └" hor ." ┘" ;
-: ver 1+ 2dup at-xy ." │" w 0 at-deltaxy ." │" ;
+: hor w 0 do ." ━" loop ;
+: top off at-xy ." ┏" hor ." ┓" ;
+: bot off h 1+ + at-xy ." ┗" hor ." ┛" ;
+: ver 1+ 2dup at-xy ." ┃" w 0 at-deltaxy ." ┃" ;
 : ver off h 0 do ver loop 2drop ; : box top ver bot ;
 : bar 00xy blubg winw spaces 00xy .s bnw ;
 
@@ -55,6 +57,7 @@ v: buf v: ind
 : whe buf @ ind @ ; : where@ whe + ; : what where@ c@ ;
 : bef whe 1- + c@ ; : aft whe 1+ + c@ ; : 2bef whe 2- + c@ ;
 : beg? cx 0= ; : end? cx w 1- = ;
+: bob ind @ 0= ; : eob ind @ len 1- = ; : beob bob eob or ;
 
 ( syntax ) 2v: @syn
 : !rem @syn @ swap @syn 2! ; : rem @syn 1 cells + @ @syn ! ;
@@ -94,42 +97,61 @@ create blocks here size bl fill size allot
 : .tru -sort 1+ swap do i .ld loop ;
 s" touch blocks.4th" system    fread   0 blk
 
+( count )
+: cntbf s"     " ; v: cmd v: cnt v: #cnt
+: keep cmd ! ; : 0keep ['] noop keep ;
+: 0cnt 0keep cnt 0! #cnt 0! s"     " drop cntbf move ;
+: cnt+ #cnt @ 1+ dup #cnt ! 4 > if 0cnt then ;
+: >cnt cntbf drop #cnt @ + c! cntbf s>num cnt ! cnt+ ;
+: dig? cnt @ if '0 else '1 then '9 within ;
+: cnt? dup dig? if >cnt rdrop then ;
+: cnt. cnt @ 0 <# # # # # #> type ;
+
 ( commands )
-v: 'draw : draw 'draw @ execute ; : prep 3drop page ;
-: .quit 3drop page bar quit ; : @bl? what bl = ;
-: .run prep run bar quit ; : .run@ prep run@ bar quit ;
+v: lastk v: 'draw
+: draw 'draw @ execute ;
+: prep page bar 01xy ; : .quit page bar 00xy quit ;
+: .run prep run quit ; : .run@ prep run@ quit ;
 : .top cx ind! ; : .bot len w - cx + ind! ;
 : .beg x0 ind! ; : .end x$ ind! ; : .clr bufcl prnt ;
 : .clrln where@ w cx - bl fill ind @ prnt ind! ;
 : .delln .beg w 1- 0 do bl wrt bl put loop y- .beg ;
-: .nex begin x+ @bl? until ; : .prv begin x- @bl? until ;
+: .nex begin x+ @bl? eob or until ;
+: .prv begin x- @bl? bob or until ;
 : .blk+ blk+ draw ; : .blk- blk- draw ;
+: till begin lastk @ x+ what = beob or until ;
+: -till begin lastk @ x- what = beob or until ;
+: .till key lastk ! till ; : -.till key lastk ! -till ;
 
 ( normal )
+: reps cnt @ 1 max 0 do cmd @ execute loop 0cnt ;
 : 2next dup 2over rot cells + 2@ dup 0<> ;
-: nokey 3drop 3drop rdrop ; : --- , ' , ;
-: dokey rot = if execute 3drop rdrop else drop 2 + then ;
-create normal 'i --- noop   'Q --- .quit
-'j --- y+     'k --- y-     'l --- x+     ', --- x-
-'G --- .bot   'g --- .top   '0 --- .beg   '$ --- .end
-'w --- .nex   'b --- .prv   'x --- .run@  'X --- .run
-'c --- .clrln 'C --- noop   'D --- .delln 'S --- fsave
-'J --- .blk+  'K --- .blk-
-0 , 0 , does> 0 begin 2next if dokey else nokey then again ;
+: nokey 0keep 3drop 3drop rdrop ; : --- , ' , ;
+: dokey rot = if keep 3drop rdrop else drop 2 + then ;
+create .normal 'i --- noop   'Q --- .quit
+'j --- y+      'k --- y-     'l --- x+     ', --- x-
+'G --- .bot    'g --- .top   '0 --- .beg   '$ --- .end
+'w --- .nex    'b --- .prv   'x --- .run@  'X --- .run
+'c --- .clrln  'C --- noop   'D --- .delln 'S --- fsave
+'J --- .blk+   'K --- .blk-  'f --- .till  'F --- -.till
+'; --- till    ': --- -till  0 , 0 ,
+does> 0 begin 2next if dokey else nokey then again ;
+: normal cnt? .normal reps ;
 
 ( modes )
 v: mode
 : mode> mode @ execute ; : keys key mode> ;
-: >normal ['] normal mode ! ; : esc? dup 27 = ;
+: >normal ['] normal mode ! ;
 : insert esc? if drop >normal else bksp? dup wrt put then ;
 : >insert ['] insert mode ! ;
-' >insert ' normal >body 1 cells + !
+' >insert ' .normal >body 1 cells + !
 
 ( tui )
 : left 2 2 offs 2! ;
+: cnt. blu off w 6 - h ++ at-xy cnt. bnw ;
 : blk. ." BLOCK " #blk @ 2/ 0 <# # #s #> type ;
 : blk. blu off h + at-xy blk. bnw ;
-: draw page bar left gre box iff blk. prnt ;
+: draw page bar left gre box iff blk. cnt. prnt ;
 ' draw 'draw !   >normal
-: lis draw begin keys blk. bar refr again ;
+: lis draw begin keys blk. cnt. bar refr again ;
 lis
