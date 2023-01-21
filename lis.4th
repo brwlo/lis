@@ -11,7 +11,8 @@ warnings off
 : ++ rot + -rot + swap ; : i+ i + ;
 : 1= 1 = ; : 2= 2 = ; : 2+ 2 + ; : 2- 2 - ;
 : sort 2dup max -rot min ; : -sort 2dup min -rot max ;
-: s>num s>number drop ;
+: s>num s>number drop ; : not invert ;
+: even 2 mod 0= ; : +- dup even if 1+ else 1- then ;
 
 ( files -- rework )
 2v: fname v: file
@@ -79,7 +80,7 @@ v: buf v: ind
 : syn syn? int com def cmp ; : syn syn colo> ;
 
 ( content -- needs improvement )
-64 c: #blks len #blks * c: size v: #blk v: shad
+64 c: #blks len #blks * c: size v: #blk
 create blocks here size bl fill size allot 
 : fname s" blocks.4th" ; : >blocks ['] blocks >body ;
 : blk #blk ! blocks #blk @ len * + buf ! ;
@@ -92,9 +93,8 @@ create blocks here size bl fill size allot
 : bksp? bksp? if x- refr bl wrt bl emit refr drop rdrop then ;
 : prnt len 0 do refr buf @ i + @ put loop ;
 : prnt ind 0! prnt ind 0! refr ; : bufcl buf @ len bl fill ;
-: alt~ shad @ if - else + then ; : alt #blk @ 1 + alt~ blk ;
-: .ld #blk @ >r 2* blk run r> blk ;
-: .tru -sort 1+ swap do i .ld loop ;
+: alt #blk @ +- blk ; : .ld #blk @ >r 2* blk run r> blk ;
+: .tru -sort 1+ swap do i .ld loop ; : shadw? #blk @ even not ;
 s" touch blocks.4th" system    fread   0 blk
 
 ( count )
@@ -103,7 +103,7 @@ s" touch blocks.4th" system    fread   0 blk
 : 0cnt 0keep cnt 0! #cnt 0! s"     " drop cntbf move ;
 : cnt+ #cnt @ 1+ dup #cnt ! 4 > if 0cnt then ;
 : >cnt cntbf drop #cnt @ + c! cntbf s>num cnt ! cnt+ ;
-: dig? cnt @ if '0 else '1 then '9 within ;
+: dig? cnt @ if '0 else '1 then '9 1+ within ;
 : cnt? dup dig? if >cnt rdrop then ;
 : cnt. cnt @ 0 <# # # # # #> type ;
 
@@ -113,12 +113,13 @@ v: lastk v: 'draw
 : prep page bar 01xy ; : .quit page bar 00xy quit ;
 : .run prep run quit ; : .run@ prep run@ quit ;
 : .top cx ind! ; : .bot len w - cx + ind! ;
-: .beg x0 ind! ; : .end x$ ind! ; : .clr bufcl prnt ;
+: .beg x0 ind! ; : .end x$ ind! ; : .del bl put bl wrt x- ;
+: .clr key 'C = if bufcl prnt then ;
 : .clrln where@ w cx - bl fill ind @ prnt ind! ;
 : .delln .beg w 1- 0 do bl wrt bl put loop y- .beg ;
-: .nex begin x+ @bl? eob or until ;
-: .prv begin x- @bl? bob or until ;
-: .blk+ blk+ draw ; : .blk- blk- draw ;
+: .nex begin x+ @bl? aft bl <> and eob or until ;
+: .prv begin x- @bl? aft bl <> and bob or until ;
+: .blk+ blk+ draw ; : .blk- blk- draw ; : .alt alt draw ;
 : till begin lastk @ x+ what = beob or until ;
 : -till begin lastk @ x- what = beob or until ;
 : .till key lastk ! till ; : -.till key lastk ! -till ;
@@ -128,13 +129,13 @@ v: lastk v: 'draw
 : 2next dup 2over rot cells + 2@ dup 0<> ;
 : nokey 0keep 3drop 3drop rdrop ; : --- , ' , ;
 : dokey rot = if keep 3drop rdrop else drop 2 + then ;
-create .normal 'i --- noop   'Q --- .quit
+create .normal 'i --- noop   'Q --- .quit  'A --- .alt
 'j --- y+      'k --- y-     'l --- x+     ', --- x-
 'G --- .bot    'g --- .top   '0 --- .beg   '$ --- .end
 'w --- .nex    'b --- .prv   'x --- .run@  'X --- .run
-'c --- .clrln  'C --- noop   'D --- .delln 'S --- fsave
+'c --- .clrln  'C --- .clr   'd --- .del   'D --- .delln
 'J --- .blk+   'K --- .blk-  'f --- .till  'F --- -.till
-'; --- till    ': --- -till  0 , 0 ,
+'; --- till    ': --- -till  'S --- fsave  0 , 0 ,
 does> 0 begin 2next if dokey else nokey then again ;
 : normal cnt? .normal reps ;
 
@@ -147,11 +148,14 @@ v: mode
 ' >insert ' .normal >body 1 cells + !
 
 ( tui )
-: left 2 2 offs 2! ;
-: cnt. blu off w 6 - h ++ at-xy cnt. bnw ;
+: bxcol shadw? if white else green then colo ;
+: alt. shadw? if blu off 1- at-xy ." SHADOW" then ;
+: left 2 2 offs 2! ; : prt# 0 <# # # #> type ;
+: cur. blu off w 6 - -1 ++ at-xy cx prt# bl emit cy prt# ;
+: cnt. blu off w 5 - h ++ at-xy cnt. bnw ;
 : blk. ." BLOCK " #blk @ 2/ 0 <# # #s #> type ;
 : blk. blu off h + at-xy blk. bnw ;
-: draw page bar left gre box iff blk. cnt. prnt ;
+: draw page bar left bxcol box iff blk. cnt. alt. prnt ;
 ' draw 'draw !   >normal
-: lis draw begin keys blk. cnt. bar refr again ;
+: lis draw begin keys blk. cur. cnt. bar refr again ;
 lis
