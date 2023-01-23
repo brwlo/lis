@@ -35,7 +35,7 @@ warnings off
 : yellow! yellow colr ! ; : green! green colr ! ;
 : white! white colr ! ; : red! red colr ! ;
 : blubg blue bg colo ; : bnw black bg colo white colo ;
-: blu blue colo ; : gre green colo ;
+: blu blue colo ;
 
 ( boxes )
 64 c: w 16 c: h w h * c: len 2v: offs
@@ -61,6 +61,7 @@ v: buf v: ind
 : bob ind @ 0= ; : eob ind @ len 1- = ; : beob bob eob or ;
 
 ( syntax ) 2v: @syn
+\ TODO: provide for '[' and ']'
 : !rem @syn @ swap @syn 2! ; : rem @syn 1 cells + @ @syn ! ;
 : bef? bef bl? ; : aft? aft bl? ;
 : @bl? what bl? ; : -bl? what bl <> ;
@@ -76,7 +77,7 @@ v: buf v: ind
 : ent? @syn @ 2 = -bl? and if 3 @syn ! rdrop then ;
 : cmp? @syn @ 3 = @bl? and if 4 @syn ! rdrop then ;
 : int? '; what? if @syn 0! rdrop then ;
-: syn? int? com? def? ent? cmp? ;
+: syn? int? com? def? ent? cmp? int? ;
 : syn syn? int com def cmp ; : syn syn colo> ;
 
 ( content -- needs improvement )
@@ -90,9 +91,14 @@ create blocks here size bl fill size allot
 : run buf@ evaluate ; : run@ whe evaluate ; : nl y+ x0 ind! ;
 : nl? dup 13 = over 10 = or if nl drop rdrop then ;
 : put nl? syn emit x+ ; : wrt where@ c! ; : bksp? dup 127 = ;
-: bksp? bksp? if x- refr bl wrt bl emit refr drop rdrop then ;
+: putbl ind @ len ind! bl wrt ind! refr ;
 : prnt len 0 do refr buf @ i + @ put loop ;
-: prnt ind 0! prnt ind 0! refr ; : bufcl buf @ len bl fill ;
+: prnt ind 0! prnt ind 0! @syn 0! refr ;
+: bufcl buf @ len bl fill ; : prsrv ind @ prnt ind! refr ;
+: pull where@ whe 1- + len ind @ - cmove putbl prsrv ;
+: ibksp? bksp? if pull x- drop rdrop then ;
+: rbksp? bksp? if x- refr bl wrt bl emit refr drop rdrop then ;
+: push where@ whe 1+ + len ind @ - 1- cmove> prsrv ;
 : alt #blk @ +- blk ; : .ld #blk @ >r 2* blk run r> blk ;
 : .tru -sort 1+ swap do i .ld loop ; : shadw? #blk @ even not ;
 s" touch blocks.4th" system    fread   0 blk
@@ -113,10 +119,11 @@ v: lastk v: 'draw
 : prep page bar 01xy ; : .quit page bar 00xy quit ;
 : .run prep run quit ; : .run@ prep run@ quit ;
 : .top cx ind! ; : .bot len w - cx + ind! ;
-: .beg x0 ind! ; : .end x$ ind! ; : .del bl put bl wrt x- ;
+: .beg x0 ind! ; : .end x$ ind! ;
+: .del bl put x- bl wrt ;
 : .clr key 'C = if bufcl prnt then ;
 : .clrln where@ w cx - bl fill ind @ prnt ind! ;
-: .delln .beg w 1- 0 do bl wrt bl put loop y- .beg ;
+: .delln .beg where@ w bl fill ind @ prnt ind! ;
 : .nex begin x+ @bl? aft bl <> and eob or until ;
 : .prv begin x- @bl? aft bl <> and bob or until ;
 : .blk+ blk+ draw ; : .blk- blk- draw ; : .alt alt draw ;
@@ -129,26 +136,29 @@ v: lastk v: 'draw
 : 2next dup 2over rot cells + 2@ dup 0<> ;
 : nokey 0keep 3drop 3drop rdrop ; : --- , ' , ;
 : dokey rot = if keep 3drop rdrop else drop 2 + then ;
-create .normal 'i --- noop   'Q --- .quit  'A --- .alt
+create .normal 'i --- noop   'R --- noop   'Q --- .quit
 'j --- y+      'k --- y-     'l --- x+     ', --- x-
 'G --- .bot    'g --- .top   '0 --- .beg   '$ --- .end
 'w --- .nex    'b --- .prv   'x --- .run@  'X --- .run
 'c --- .clrln  'C --- .clr   'd --- .del   'D --- .delln
 'J --- .blk+   'K --- .blk-  'f --- .till  'F --- -.till
-'; --- till    ': --- -till  'S --- fsave  0 , 0 ,
-does> 0 begin 2next if dokey else nokey then again ;
-: normal cnt? .normal reps ;
+'; --- till    ': --- -till  'A --- .alt   'S --- fsave
+0 , 0 , does> 0 begin 2next if dokey else nokey then again ;
+: nrml cnt? .normal reps ;
 
 ( modes )
 v: mode
 : mode> mode @ execute ; : keys key mode> ;
-: >normal ['] normal mode ! ;
-: insert esc? if drop >normal else bksp? dup wrt put then ;
-: >insert ['] insert mode ! ;
-' >insert ' .normal >body 1 cells + !
+: >nrml ['] nrml mode ! ;
+: nrml? esc? if drop >nrml rdrop then ;
+: ins nrml? ibksp? push dup wrt put ;
+: rep nrml? rbksp? dup wrt put ;
+: >ins ['] ins mode ! ; : >rep ['] rep mode ! ;
+' >ins ' .normal >body 1 cells + !
+' >rep ' .normal >body 3 cells + !
 
 ( tui )
-: bxcol shadw? if white else green then colo ;
+: bxcol shadw? if yellow else green then colo ;
 : alt. shadw? if blu off 1- at-xy ." SHADOW" then ;
 : left 2 2 offs 2! ; : prt# 0 <# # # #> type ;
 : cur. blu off w 6 - -1 ++ at-xy cx prt# bl emit cy prt# ;
@@ -156,6 +166,6 @@ v: mode
 : blk. ." BLOCK " #blk @ 2/ 0 <# # #s #> type ;
 : blk. blu off h + at-xy blk. bnw ;
 : draw page bar left bxcol box iff blk. cnt. alt. prnt ;
-' draw 'draw !   >normal
+' draw 'draw !   >nrml
 : lis draw begin keys blk. cur. cnt. bar refr again ;
 lis
