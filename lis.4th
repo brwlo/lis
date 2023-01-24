@@ -120,7 +120,7 @@ v: lastk v: 'draw
 : .run prep run quit ; : .run@ prep run@ quit ;
 : .top cx ind! ; : .bot len w - cx + ind! ;
 : .beg x0 ind! ; : .end x$ ind! ;
-: .del bl put x- bl wrt ;
+: .del bl put bl wrt x- ;
 : .clr key 'C = if bufcl prnt then ;
 : .clrln where@ w cx - bl fill ind @ prnt ind! ;
 : .delln .beg where@ w bl fill ind @ prnt ind! ;
@@ -136,7 +136,7 @@ v: lastk v: 'draw
 : 2next dup 2over rot cells + 2@ dup 0<> ;
 : nokey 0keep 3drop 3drop rdrop ; : --- , ' , ;
 : dokey rot = if keep 3drop rdrop else drop 2 + then ;
-create .normal 'i --- noop   'R --- noop   'Q --- .quit
+create .normal 'i --- noop   'r --- noop   'Q --- .quit
 'j --- y+      'k --- y-     'l --- x+     ', --- x-
 'G --- .bot    'g --- .top   '0 --- .beg   '$ --- .end
 'w --- .nex    'b --- .prv   'x --- .run@  'X --- .run
