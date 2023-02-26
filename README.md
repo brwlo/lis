@@ -45,6 +45,9 @@ f  | find <char>
 ;  | repeat find <char> 
 F  | find <char> backwards 
 :  | repeat find <char> backwards
+/  | search for a string
+n  | search for next string
+N  | search for previous string
 a  | toggle shadow block
 A  | toggle alternate block
 B  | goto <count>th block

@@ -80,7 +80,7 @@ v: buf v: ind
 : write" ( buf len "file ) fname" "write ;
 
 ( blocks )
-64 c: #blks len #blks * c: size v: #blk
+128 c: #blks len #blks * c: size v: #blk
 create blocks here size bl fill size allot 
 : fname s" blocks.4th" ;
 : file? fname slurp-file ;
